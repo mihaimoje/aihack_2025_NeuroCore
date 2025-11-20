@@ -32,6 +32,7 @@ const App = () => (
       <BrowserRouter>
         <AuthProvider>
           <Routes>
+            <Route path="/" element={<Login />} />
             <Route path="/login" element={<Login />} />
             <Route path="/accept-invitation/:token" element={<AcceptInvitation />} />
 
