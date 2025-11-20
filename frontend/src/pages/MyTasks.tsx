@@ -3,7 +3,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { useAuth } from "@/contexts/AuthContext";
 import { TaskList } from "@/components/TaskList";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { CheckSquare, Clock, AlertTriangle } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { CheckSquare, Clock, AlertTriangle, Sparkles } from "lucide-react";
 import { tasksApi } from "@/lib/api";
 import { toast } from "sonner";
 
@@ -11,6 +12,8 @@ export default function MyTasks() {
   const { user } = useAuth();
   const [myTasks, setMyTasks] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [sortingTasks, setSortingTasks] = useState(false);
+  const [isSorted, setIsSorted] = useState(false);
 
   const fetchMyTasks = async () => {
     if (!user?.id) {
@@ -24,11 +27,50 @@ export default function MyTasks() {
       const tasks = await tasksApi.getAll({ assignedTo: user.id });
       console.log("Fetched tasks:", tasks);
       setMyTasks(tasks);
+      setIsSorted(false);
     } catch (error) {
       toast.error("Failed to load your tasks");
       console.error("Error fetching tasks:", error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSmartSort = async () => {
+    if (!user?.id) return;
+
+    setSortingTasks(true);
+    try {
+      const result = await tasksApi.smartSort(user.id);
+      
+      // Reorder tasks based on AI suggestion
+      const sortedTasks = [...myTasks];
+      const sortedTaskIds = result.sortedTaskIds;
+      
+      // Sort the tasks array according to the AI-provided order
+      sortedTasks.sort((a, b) => {
+        const indexA = sortedTaskIds.indexOf(a.id);
+        const indexB = sortedTaskIds.indexOf(b.id);
+        
+        // Tasks not in sortedTaskIds (completed ones) go to the end
+        if (indexA === -1 && indexB === -1) return 0;
+        if (indexA === -1) return 1;
+        if (indexB === -1) return -1;
+        
+        return indexA - indexB;
+      });
+
+      setMyTasks(sortedTasks);
+      setIsSorted(true);
+      
+      toast.success("Tasks sorted successfully!", {
+        description: result.reasoning,
+      });
+    } catch (error) {
+      toast.error("Failed to sort tasks");
+      console.error("Error sorting tasks:", error);
+    } finally {
+      setSortingTasks(false);
     }
   };
 
@@ -116,8 +158,21 @@ export default function MyTasks() {
 
       <Card>
         <CardHeader>
-          <CardTitle>My Tasks</CardTitle>
-          <CardDescription>Organized by status</CardDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>My Tasks</CardTitle>
+              <CardDescription>Organized by status</CardDescription>
+            </div>
+            <Button 
+              onClick={handleSmartSort} 
+              disabled={sortingTasks || myTasks.filter(t => t.status !== 'done').length === 0}
+              variant={isSorted ? "secondary" : "default"}
+              className="gap-2"
+            >
+              <Sparkles className="h-4 w-4" />
+              {sortingTasks ? "Sorting..." : isSorted ? "Re-sort Tasks" : "Smart Sort Tasks"}
+            </Button>
+          </div>
         </CardHeader>
         <CardContent>
           <Tabs defaultValue="all">

@@ -26,6 +26,8 @@ export default function Burnout() {
   const [teamHours, setTeamHours] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+  const [loadingHours, setLoadingHours] = useState(false);
 
   const fetchTeamBurnout = async (forceRefresh = false) => {
     if (!user?.id) return;
@@ -58,6 +60,27 @@ export default function Burnout() {
     } finally {
       setLoading(false);
       setRefreshing(false);
+    }
+  };
+
+  const handleUserChange = async (userId: string | null) => {
+    if (!user?.id) return;
+    
+    setSelectedUserId(userId);
+    setLoadingHours(true);
+    
+    try {
+      const hoursData = await burnoutApi.getTeamHours(user.id, userId || undefined);
+      setTeamHours(hoursData);
+    } catch (error) {
+      console.error('Error fetching user hours:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load user activity data",
+        variant: "destructive",
+      });
+    } finally {
+      setLoadingHours(false);
     }
   };
 
@@ -251,10 +274,13 @@ export default function Burnout() {
         </CardContent>
       </Card>
 
-      {teamHours && teamHours.dailyHours && (
+      {teamHours && teamHours.dailyHours && teamBurnoutData?.members && (
         <BurnoutHeatmap 
           score={teamBurnoutData.averageScore} 
-          dailyHours={teamHours.dailyHours} 
+          dailyHours={teamHours.dailyHours}
+          teamMembers={teamBurnoutData.members}
+          onUserChange={handleUserChange}
+          selectedUserId={selectedUserId}
         />
       )}
     </div>

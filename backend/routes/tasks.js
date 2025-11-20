@@ -1,7 +1,42 @@
 import express from 'express';
 import Task from '../models/task.js';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 
 const router = express.Router();
+
+// Initialize Gemini AI
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+
+const GEMINI_MODELS = ['gemini-2.5-pro'];
+
+// Helper to wait before retry
+const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+async function getGeminiResponse(prompt, modelIndex = 0, retryCount = 0) {
+    if (modelIndex >= GEMINI_MODELS.length) {
+        throw new Error('All Gemini models failed');
+    }
+
+    try {
+        const model = genAI.getGenerativeModel({ model: GEMINI_MODELS[modelIndex] });
+        const result = await model.generateContent(prompt);
+        const response = await result.response;
+        return response.text();
+    } catch (error) {
+        console.error(`Model ${GEMINI_MODELS[modelIndex]} failed (attempt ${retryCount + 1}):`, error.message);
+        
+        // If quota exceeded and we haven't retried yet, wait and retry same model
+        if (error.message.includes('quota') && retryCount < 2) {
+            const waitTime = 2000 * (retryCount + 1); // 2s, 4s
+            console.log(`Waiting ${waitTime}ms before retry...`);
+            await delay(waitTime);
+            return getGeminiResponse(prompt, modelIndex, retryCount + 1);
+        }
+        
+        // Try next model
+        return getGeminiResponse(prompt, modelIndex + 1, 0);
+    }
+}
 
 // Get all tasks
 router.get('/', async (req, res) => {
@@ -234,6 +269,147 @@ router.delete('/:id', async (req, res) => {
         res.json({ message: 'Task deleted successfully' });
     } catch (error) {
         res.status(500).json({ message: error.message });
+    }
+});
+
+// Smart sort tasks using Gemini AI
+router.post('/smart-sort', async (req, res) => {
+    try {
+        const { userId } = req.body;
+
+        if (!userId) {
+            return res.status(400).json({ message: 'User ID is required' });
+        }
+
+        // Get all incomplete tasks for the user
+        const tasks = await Task.find({
+            assignedTo: userId,
+            status: { $in: ['to-do', 'in-progress'] }
+        })
+            .populate('projectId')
+            .populate('assignedTo', '-password')
+            .sort({ createdAt: 1 });
+
+        if (tasks.length === 0) {
+            return res.json({ sortedTaskIds: [], message: 'No incomplete tasks to sort' });
+        }
+
+        // Prepare task data for AI analysis
+        const tasksForAI = tasks.map((task, index) => {
+            const now = new Date();
+            const dueDate = new Date(task.dueDate || task.createdAt);
+            const hoursUntilDue = Math.max(0, (dueDate - now) / (1000 * 60 * 60));
+            const daysUntilDue = (hoursUntilDue / 24).toFixed(1);
+            const isOverdue = dueDate < now;
+            
+            const startedAt = task.startedAt ? new Date(task.startedAt) : null;
+            const hoursInProgress = startedAt ? ((now - startedAt) / (1000 * 60 * 60)).toFixed(1) : null;
+
+            return {
+                index: index,
+                id: task._id.toString(),
+                title: task.title,
+                description: task.description,
+                status: task.status === 'to-do' ? 'todo' : task.status,
+                priority: task.priority,
+                estimatedHours: task.estimateHours || 0,
+                dueDate: task.dueDate || task.createdAt,
+                hoursUntilDue: hoursUntilDue.toFixed(1),
+                daysUntilDue: daysUntilDue,
+                isOverdue: isOverdue,
+                startedAt: task.startedAt,
+                hoursInProgress: hoursInProgress,
+                projectName: task.projectId?.name || 'Unknown'
+            };
+        });
+
+        // Create AI prompt
+        const prompt = `You are a task management AI assistant. Analyze the following tasks and provide an optimal order for completing them.
+
+Consider these factors in your analysis:
+1. Priority level (high, medium, low)
+2. Time until deadline (hours/days remaining)
+3. Whether the task is already in progress
+4. Whether the task is overdue
+5. Estimated hours to complete
+6. Project context
+
+Tasks to analyze:
+${JSON.stringify(tasksForAI, null, 2)}
+
+IMPORTANT: You MUST respond with ONLY a valid JSON object in this exact format, with no additional text before or after:
+{
+  "sortedIndices": [array of task indices in recommended order],
+  "reasoning": "Brief explanation of the sorting logic"
+}
+
+The sortedIndices array should contain the index numbers (0-${tasks.length - 1}) of the tasks in the recommended order.
+Example: {"sortedIndices": [2, 0, 5, 1, 3, 4], "reasoning": "Prioritized overdue high-priority tasks first, then in-progress tasks, then by deadline"}`;
+
+        console.log('Sending prompt to Gemini for task sorting...');
+        const aiResponse = await getGeminiResponse(prompt);
+        console.log('Raw AI response:', aiResponse);
+
+        // Parse AI response
+        let sortedIndices;
+        let reasoning = '';
+        
+        try {
+            // Clean the response - remove markdown code blocks if present
+            let cleanResponse = aiResponse.trim();
+            cleanResponse = cleanResponse.replace(/```json\n?/g, '').replace(/```\n?/g, '');
+            
+            const parsed = JSON.parse(cleanResponse);
+            sortedIndices = parsed.sortedIndices;
+            reasoning = parsed.reasoning || 'AI-optimized task order';
+
+            // Validate that we have all indices
+            if (!Array.isArray(sortedIndices) || sortedIndices.length !== tasks.length) {
+                throw new Error('Invalid sorted indices from AI');
+            }
+        } catch (parseError) {
+            console.error('Error parsing AI response:', parseError);
+            console.error('AI response was:', aiResponse);
+            
+            // Fallback: sort by priority and deadline
+            sortedIndices = tasksForAI
+                .map((_, idx) => idx)
+                .sort((a, b) => {
+                    const taskA = tasksForAI[a];
+                    const taskB = tasksForAI[b];
+                    
+                    // Overdue tasks first
+                    if (taskA.isOverdue !== taskB.isOverdue) return taskA.isOverdue ? -1 : 1;
+                    
+                    // In progress tasks next
+                    if ((taskA.status === 'in-progress') !== (taskB.status === 'in-progress')) {
+                        return taskA.status === 'in-progress' ? -1 : 1;
+                    }
+                    
+                    // Then by priority
+                    const priorityOrder = { high: 0, medium: 1, low: 2 };
+                    const priorityDiff = priorityOrder[taskA.priority] - priorityOrder[taskB.priority];
+                    if (priorityDiff !== 0) return priorityDiff;
+                    
+                    // Finally by deadline
+                    return parseFloat(taskA.hoursUntilDue) - parseFloat(taskB.hoursUntilDue);
+                });
+            
+            reasoning = 'Fallback sorting: overdue tasks first, then in-progress, then by priority and deadline';
+        }
+
+        // Convert indices to task IDs
+        const sortedTaskIds = sortedIndices.map(idx => tasks[idx]._id.toString());
+
+        res.json({
+            sortedTaskIds,
+            reasoning,
+            tasksAnalyzed: tasks.length
+        });
+
+    } catch (error) {
+        console.error('Error in smart-sort:', error);
+        res.status(500).json({ message: 'Failed to sort tasks', error: error.message });
     }
 });
 

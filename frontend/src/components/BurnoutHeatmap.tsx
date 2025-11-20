@@ -1,11 +1,22 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useState } from "react";
+
+interface TeamMember {
+  userId: string;
+  name: string;
+  email: string;
+}
 
 interface BurnoutHeatmapProps {
   score: number;
   dailyHours: Array<{ date: string; hours: number; dayOfWeek: string }>;
+  teamMembers: TeamMember[];
+  onUserChange: (userId: string | null) => void;
+  selectedUserId?: string | null;
 }
 
-export const BurnoutHeatmap = ({ score, dailyHours }: BurnoutHeatmapProps) => {
+export const BurnoutHeatmap = ({ score, dailyHours, teamMembers, onUserChange, selectedUserId }: BurnoutHeatmapProps) => {
   const days = [ 'Sun','Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   const weeks = 4;
 
@@ -31,11 +42,34 @@ export const BurnoutHeatmap = ({ score, dailyHours }: BurnoutHeatmapProps) => {
     return "bg-destructive";
   };
 
+  const selectedMember = teamMembers.find(m => m.userId === selectedUserId);
+  const displayName = selectedUserId ? selectedMember?.name : "All Team";
+
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Activity Heatmap</CardTitle>
-        <CardDescription>Daily work hours over the past 4 weeks</CardDescription>
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle>Activity Heatmap</CardTitle>
+            <CardDescription>Daily work hours over the past 4 weeks - {displayName}</CardDescription>
+          </div>
+          <Select
+            value={selectedUserId || "all"}
+            onValueChange={(value) => onUserChange(value === "all" ? null : value)}
+          >
+            <SelectTrigger className="w-[200px]">
+              <SelectValue placeholder="Filter by user" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Team</SelectItem>
+              {teamMembers.map((member) => (
+                <SelectItem key={member.userId} value={member.userId}>
+                  {member.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </CardHeader>
       <CardContent>
         <div className="space-y-2">

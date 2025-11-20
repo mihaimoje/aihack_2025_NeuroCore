@@ -220,6 +220,16 @@ export const tasksApi = {
     if (!response.ok) throw new Error('Failed to delete task');
     return response.json();
   },
+
+  smartSort: async (userId: string) => {
+    const response = await fetch(`${API_URL}/tasks/smart-sort`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify({ userId }),
+    });
+    if (!response.ok) throw new Error('Failed to sort tasks');
+    return response.json();
+  },
 };
 
 // Teams API
@@ -360,8 +370,12 @@ export const burnoutApi = {
     return response.json();
   },
 
-  getTeamHours: async (managerId: string) => {
-    const response = await fetch(`${API_URL}/burnout/team/${managerId}/hours`, {
+  getTeamHours: async (managerId: string, userId?: string) => {
+    const url = userId 
+      ? `${API_URL}/burnout/team/${managerId}/hours/${userId}`
+      : `${API_URL}/burnout/team/${managerId}/hours`;
+    
+    const response = await fetch(url, {
       headers: getHeaders(),
     });
     if (!response.ok) throw new Error('Failed to fetch team hours');

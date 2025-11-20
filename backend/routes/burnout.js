@@ -473,4 +473,85 @@ router.get('/team/:managerId/hours', async (req, res) => {
     }
 });
 
+// Get team activity hours filtered by user
+router.get('/team/:managerId/hours/:userId', async (req, res) => {
+    try {
+        const { managerId, userId } = req.params;
+        
+        // Verify user is in manager's team
+        const Team = (await import('../models/team.js')).default;
+        const teams = await Team.find({ managerId }).populate('members');
+        
+        if (!teams || teams.length === 0) {
+            return res.status(404).json({ message: 'No teams found for this manager' });
+        }
+        
+        // Check if userId is in the team
+        const allMemberIds = teams.flatMap(team => team.members.map(m => m._id.toString()));
+        if (!allMemberIds.includes(userId)) {
+            return res.status(403).json({ message: 'User not in your team' });
+        }
+        
+        // Get completed tasks for specific user in the last 4 weeks
+        const fourWeeksAgo = new Date();
+        fourWeeksAgo.setDate(fourWeeksAgo.getDate() - 28);
+        
+        const tasks = await Task.find({
+            assignedTo: userId,
+            status: 'done',
+            completedAt: { $gte: fourWeeksAgo }
+        }).select('startedAt completedAt assignedTo');
+        
+        // Calculate daily hours for the last 28 days
+        const dailyHours = {};
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        
+        // Initialize all days with 0 hours
+        for (let i = 0; i < 28; i++) {
+            const date = new Date(today);
+            date.setDate(date.getDate() - i);
+            const dateKey = date.toISOString().split('T')[0];
+            dailyHours[dateKey] = 0;
+        }
+        
+        // Calculate hours from tasks
+        tasks.forEach(task => {
+            if (task.startedAt && task.completedAt) {
+                const completedDate = new Date(task.completedAt);
+                completedDate.setHours(0, 0, 0, 0);
+                const dateKey = completedDate.toISOString().split('T')[0];
+                
+                if (dailyHours.hasOwnProperty(dateKey)) {
+                    const durationMs = new Date(task.completedAt) - new Date(task.startedAt);
+                    const durationHours = durationMs / (1000 * 60 * 60);
+                    dailyHours[dateKey] += durationHours;
+                }
+            }
+        });
+        
+        // Convert to array format for frontend
+        const hoursArray = Object.entries(dailyHours)
+            .sort(([dateA], [dateB]) => dateA.localeCompare(dateB))
+            .map(([date, hours]) => ({
+                date,
+                hours: Math.round(hours * 10) / 10,
+                dayOfWeek: new Date(date).toLocaleString('en-US', { weekday: 'short' })
+            }));
+        
+        res.json({
+            managerId,
+            userId,
+            period: {
+                start: fourWeeksAgo.toISOString().split('T')[0],
+                end: today.toISOString().split('T')[0]
+            },
+            dailyHours: hoursArray
+        });
+    } catch (error) {
+        console.error('Error fetching user hours:', error);
+        res.status(500).json({ message: error.message });
+    }
+});
+
 export default router;
