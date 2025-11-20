@@ -28,18 +28,22 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
-      <Card className="w-full max-w-md">
+    <div 
+      className="min-h-screen flex items-center justify-center p-4 bg-cover bg-center bg-no-repeat"
+      style={{ backgroundImage: "url('/background.png')" }}
+    >
+      <div className="absolute inset-0 bg-black/30"></div>
+      <Card className="w-full max-w-md relative z-10 shadow-2xl bg-white/10 backdrop-blur-xl border-white/20">
         <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl font-bold text-center">Welcome back</CardTitle>
-          <CardDescription className="text-center">
+          <CardTitle className="text-2xl font-bold text-center text-white">Welcome back</CardTitle>
+          <CardDescription className="text-center text-white/90">
             Enter your credentials to access your account
           </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="username">Username</Label>
+              <Label htmlFor="username" className="text-white">Username</Label>
               <Input
                 id="username"
                 type="text"
@@ -50,7 +54,7 @@ export default function Login() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
+              <Label htmlFor="password" className="text-white">Password</Label>
               <Input
                 id="password"
                 type="password"
@@ -65,9 +69,9 @@ export default function Login() {
             </Button>
           </form>
 
-          <div className="mt-6 pt-6 border-t border-border">
-            <p className="text-xs text-muted-foreground text-center mb-2">Demo credentials:</p>
-            <div className="space-y-1 text-xs text-muted-foreground">
+          <div className="mt-6 pt-6 border-t border-white/30">
+            <p className="text-xs text-white/80 text-center mb-2">Demo credentials:</p>
+            <div className="space-y-1 text-xs text-white/70">
               <p>Admin: admin / password</p>
               <p>Manager: manager1 / password</p>
               <p>User: user1 / password</p>

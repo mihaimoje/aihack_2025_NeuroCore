@@ -90,7 +90,7 @@ export const Navbar = () => {
 
   if (user?.role !== 'manager') {
     return (
-      <header className="h-16 border-b border-border bg-card flex items-center px-6 gap-4">
+      <header className="h-16 border-b-2 border-primary/20 bg-gradient-to-r from-sidebar-background to-background flex items-center px-6 gap-4 shadow-sm">
         <SidebarTrigger />
         <div className="flex-1" />
       </header>
@@ -98,19 +98,18 @@ export const Navbar = () => {
   }
 
   return (
-    <header className="h-16 border-b border-border bg-card flex items-center px-6 gap-4">
+    <header className="h-16 border-b-2 border-primary/20 bg-gradient-to-r from-sidebar-background to-background flex items-center px-6 gap-4 shadow-sm">
       <SidebarTrigger />
 
       <div className="flex-1" />
 
       <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
         <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="icon" className="relative">
-            <Bell className="h-5 w-5" />
+          <Button variant="ghost" size="icon" className="relative hover:bg-primary/10 transition-colors">
+            <Bell className="h-5 w-5 text-primary" />
             {unreadCount > 0 && (
               <Badge 
-                variant="destructive" 
-                className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-xs"
+                className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-xs bg-accent text-accent-foreground border-2 border-background"
               >
                 {unreadCount > 9 ? '9+' : unreadCount}
               </Badge>
