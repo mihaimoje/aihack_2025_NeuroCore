@@ -17,7 +17,6 @@ import ProjectDetails from "./pages/ProjectDetails";
 import Tasks from "./pages/Tasks";
 import TaskDetail from "./pages/TaskDetail";
 import MyTasks from "./pages/MyTasks";
-import Insights from "./pages/Insights";
 import Burnout from "./pages/Burnout";
 import Settings from "./pages/Settings";
 import Profile from "./pages/Profile";
@@ -58,11 +57,6 @@ const App = () => (
               <Route path="/tasks" element={
                 <ProtectedRoute allowedRoles={["manager"]}>
                   <Tasks />
-                </ProtectedRoute>
-              } />
-              <Route path="/insights" element={
-                <ProtectedRoute allowedRoles={["manager"]}>
-                  <Insights />
                 </ProtectedRoute>
               } />
 

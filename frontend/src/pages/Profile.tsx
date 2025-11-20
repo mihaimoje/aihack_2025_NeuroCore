@@ -99,15 +99,9 @@ export default function Profile() {
 
     return (
         <div className="space-y-6">
-            <div className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-3xl font-bold">My Profile</h1>
-                    <p className="text-muted-foreground mt-1">View and manage your account information</p>
-                </div>
-                <Button variant="outline">
-                    <Edit className="h-4 w-4 mr-2" />
-                    Edit Profile
-                </Button>
+            <div>
+                <h1 className="text-3xl font-bold">My Profile</h1>
+                <p className="text-muted-foreground mt-1">View and manage your account information</p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">

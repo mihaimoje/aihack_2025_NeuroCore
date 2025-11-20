@@ -33,14 +33,12 @@ export const AppSidebar = () => {
 
   const adminItems = [
     { title: "Admin Dashboard", url: "/admin", icon: LayoutDashboard },
-    { title: "User Management", url: "/admin/users", icon: UsersRound },
   ];
 
   const managerItems = [
     { title: "Team Management", url: "/team", icon: Users },
     { title: "Projects", url: "/projects", icon: FolderKanban },
     { title: "Tasks", url: "/tasks", icon: CheckSquare },
-    { title: "Insights", url: "/insights", icon: BarChart3 },
     { title: "Team Burnout", url: "/burnout", icon: Activity },
   ];
 

@@ -5,45 +5,95 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { usersApi } from "@/lib/api";
 import { Badge } from "@/components/ui/badge";
-import { Users, Shield, UserCog } from "lucide-react";
+import { Users, Shield, UserCog, UserPlus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 export default function DashboardAdmin() {
   const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [editingUserId, setEditingUserId] = useState<string | null>(null);
-  const [newRole, setNewRole] = useState("");
+  const [isAddUserOpen, setIsAddUserOpen] = useState(false);
+  
+  // New user form state
+  const [newUserData, setNewUserData] = useState({
+    name: "",
+    username: "",
+    email: "",
+    password: "",
+    role: "developer"
+  });
 
   useEffect(() => {
-    const fetchUsers = async () => {
-      try {
-        const usersData = await usersApi.getAll();
-        setUsers(usersData);
-      } catch (error) {
-        toast.error("Failed to load users");
-      } finally {
-        setLoading(false);
-      }
-    };
     fetchUsers();
   }, []);
 
-  const handleRoleChange = async (userId: string) => {
-    if (!newRole || !["superadmin", "manager", "developer", "tester"].includes(newRole)) {
-      toast.error("Invalid role. Use: superadmin, manager, developer, or tester");
+  const fetchUsers = async () => {
+    try {
+      const usersData = await usersApi.getAll();
+      setUsers(usersData);
+    } catch (error) {
+      toast.error("Failed to load users");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAddUser = async () => {
+    if (!newUserData.name || !newUserData.username || !newUserData.email || !newUserData.password) {
+      toast.error("All fields are required");
       return;
     }
 
     try {
-      await usersApi.update(userId, { role: newRole });
-      setUsers(users.map(u => 
-        u.id === userId ? { ...u, role: newRole as any } : u
-      ));
-      setEditingUserId(null);
-      setNewRole("");
-      toast.success("Role updated successfully");
+      await usersApi.create(newUserData);
+      toast.success("User created successfully");
+      setIsAddUserOpen(false);
+      setNewUserData({
+        name: "",
+        username: "",
+        email: "",
+        password: "",
+        role: "developer"
+      });
+      fetchUsers();
     } catch (error) {
-      toast.error("Failed to update role");
+      toast.error("Failed to create user");
+    }
+  };
+
+  const handleDeleteUser = async (userId: string, userName: string) => {
+    try {
+      await usersApi.delete(userId);
+      setUsers(users.filter(u => u.id !== userId));
+      toast.success(`User ${userName} deleted successfully`);
+    } catch (error) {
+      toast.error("Failed to delete user");
     }
   };
 
@@ -125,8 +175,91 @@ export default function DashboardAdmin() {
 
       <Card>
         <CardHeader>
-          <CardTitle>User Management</CardTitle>
-          <CardDescription>View and manage user roles</CardDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>User Management</CardTitle>
+              <CardDescription>View and manage all users</CardDescription>
+            </div>
+            <Dialog open={isAddUserOpen} onOpenChange={setIsAddUserOpen}>
+              <DialogTrigger asChild>
+                <Button>
+                  <UserPlus className="h-4 w-4 mr-2" />
+                  Add User
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Add New User</DialogTitle>
+                  <DialogDescription>
+                    Create a new user account with the specified details
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="name">Full Name</Label>
+                    <Input
+                      id="name"
+                      placeholder="John Doe"
+                      value={newUserData.name}
+                      onChange={(e) => setNewUserData({ ...newUserData, name: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="username">Username</Label>
+                    <Input
+                      id="username"
+                      placeholder="johndoe"
+                      value={newUserData.username}
+                      onChange={(e) => setNewUserData({ ...newUserData, username: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="email">Email</Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      placeholder="john@example.com"
+                      value={newUserData.email}
+                      onChange={(e) => setNewUserData({ ...newUserData, email: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="password">Password</Label>
+                    <Input
+                      id="password"
+                      type="password"
+                      placeholder="Enter password"
+                      value={newUserData.password}
+                      onChange={(e) => setNewUserData({ ...newUserData, password: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="role">Role</Label>
+                    <Select
+                      value={newUserData.role}
+                      onValueChange={(value) => setNewUserData({ ...newUserData, role: value })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a role" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="developer">Developer</SelectItem>
+                        <SelectItem value="tester">Tester</SelectItem>
+                        <SelectItem value="manager">Manager</SelectItem>
+                        <SelectItem value="superadmin">Super Admin</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setIsAddUserOpen(false)}>
+                    Cancel
+                  </Button>
+                  <Button onClick={handleAddUser}>Create User</Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </div>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
@@ -138,41 +271,36 @@ export default function DashboardAdmin() {
                   <div className="text-xs text-muted-foreground mt-1">@{user.username}</div>
                 </div>
 
-                {editingUserId === user.id ? (
-                  <div className="flex items-center gap-2">
-                    <Input
-                      placeholder="Enter role"
-                      value={newRole}
-                      onChange={(e) => setNewRole(e.target.value)}
-                      className="w-32"
-                    />
-                    <Button size="sm" onClick={() => handleRoleChange(user.id)}>
-                      Save
-                    </Button>
-                    <Button size="sm" variant="outline" onClick={() => {
-                      setEditingUserId(null);
-                      setNewRole("");
-                    }}>
-                      Cancel
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-2">
-                    <Badge variant={getRoleBadgeVariant(user.role)}>
-                      {user.role}
-                    </Badge>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => {
-                        setEditingUserId(user.id);
-                        setNewRole(user.role);
-                      }}
-                    >
-                      Change Role
-                    </Button>
-                  </div>
-                )}
+                <div className="flex items-center gap-2">
+                  <Badge variant={getRoleBadgeVariant(user.role)}>
+                    {user.role}
+                  </Badge>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button size="sm" variant="destructive">
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          This will permanently delete the user account for <strong>{user.name}</strong> (@{user.username}).
+                          This action cannot be undone.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                          onClick={() => handleDeleteUser(user.id, user.name)}
+                          className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                        >
+                          Delete User
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </div>
               </div>
             ))}
           </div>

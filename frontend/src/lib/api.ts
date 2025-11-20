@@ -63,6 +63,16 @@ export const usersApi = {
     return response.json();
   },
 
+  create: async (data: any) => {
+    const response = await fetch(`${API_URL}/users`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify(data),
+    });
+    if (!response.ok) throw new Error('Failed to create user');
+    return response.json();
+  },
+
   update: async (id: string, data: any) => {
     const response = await fetch(`${API_URL}/users/${id}`, {
       method: 'PUT',
