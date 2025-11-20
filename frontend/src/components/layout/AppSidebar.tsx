@@ -106,18 +106,6 @@ export const AppSidebar = () => {
                   </NavLink>
                 </SidebarMenuButton>
               </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild>
-                  <NavLink
-                    to="/settings"
-                    className={`flex items-center gap-3 ${collapsed ? "justify-center" : ""}`}
-                    activeClassName="bg-primary text-primary-foreground font-medium"
-                  >
-                    <Settings className={`h-5 w-5 ${collapsed ? "" : "flex-shrink-0"}`} />
-                    {!collapsed && <span>Settings</span>}
-                  </NavLink>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>

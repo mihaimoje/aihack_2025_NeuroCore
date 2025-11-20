@@ -9,6 +9,7 @@ import { Plus, FolderKanban, Users, CheckSquare } from "lucide-react";
 import { toast } from "sonner";
 import { Link } from "react-router-dom";
 import { Progress } from "@/components/ui/progress";
+import { useAuth } from "@/contexts/AuthContext";
 import {
   Dialog,
   DialogContent,
@@ -34,6 +35,7 @@ interface Task {
 }
 
 export default function Projects() {
+  const { user } = useAuth();
   const [projects, setProjects] = useState<Project[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
@@ -42,30 +44,38 @@ export default function Projects() {
     name: "",
     description: "",
     githubUrl: "",
-    members: "",
   });
 
   useEffect(() => {
     const fetchData = async () => {
+      if (!user?.id) return;
+
       try {
         const [projectsData, tasksData] = await Promise.all([
-          projectsApi.getAll(),
+          projectsApi.getUserProjects(user.id),
           tasksApi.getAll()
         ]);
         setProjects(projectsData);
         setTasks(tasksData);
       } catch (error) {
+        console.error('Error fetching data:', error);
         toast.error("Failed to load projects");
       } finally {
         setLoading(false);
       }
     };
     fetchData();
-  }, []);
+  }, [user]);
 
   const handleCreateProject = async () => {
     if (!newProject.name || !newProject.description) {
       toast.error("Please fill in required fields");
+      return;
+    }
+
+    // Verifică dacă utilizatorul este manager
+    if (user?.role !== "manager") {
+      toast.error("Only managers can create projects");
       return;
     }
 
@@ -74,12 +84,16 @@ export default function Projects() {
         name: newProject.name,
         description: newProject.description,
         githubLink: newProject.githubUrl || "https://github.com/company/project",
-        members: newProject.members.split(",").map(m => m.trim()).filter(Boolean),
+        userId: user.id, // Add user ID for team assignment
       };
 
       const createdProject = await projectsApi.create(projectData);
-      setProjects([...projects, createdProject]);
-      setNewProject({ name: "", description: "", githubUrl: "", members: "" });
+
+      // Refresh projects list
+      const updatedProjects = await projectsApi.getUserProjects(user.id);
+      setProjects(updatedProjects);
+
+      setNewProject({ name: "", description: "", githubUrl: "" });
       setDialogOpen(false);
       toast.success("Project created successfully");
     } catch (error) {
@@ -99,63 +113,56 @@ export default function Projects() {
           <p className="text-muted-foreground mt-1">Manage your team's projects</p>
         </div>
 
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="h-4 w-4 mr-2" />
-              New Project
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Create New Project</DialogTitle>
-              <DialogDescription>
-                Add a new project to your workspace
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="name">Project Name *</Label>
-                <Input
-                  id="name"
-                  placeholder="E-commerce Platform"
-                  value={newProject.name}
-                  onChange={(e) => setNewProject({ ...newProject, name: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="description">Description *</Label>
-                <Textarea
-                  id="description"
-                  placeholder="A modern e-commerce solution..."
-                  value={newProject.description}
-                  onChange={(e) => setNewProject({ ...newProject, description: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="github">GitHub URL</Label>
-                <Input
-                  id="github"
-                  placeholder="https://github.com/company/project"
-                  value={newProject.githubUrl}
-                  onChange={(e) => setNewProject({ ...newProject, githubUrl: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="members">Member IDs (comma-separated)</Label>
-                <Input
-                  id="members"
-                  placeholder="3, 4, 5"
-                  value={newProject.members}
-                  onChange={(e) => setNewProject({ ...newProject, members: e.target.value })}
-                />
-              </div>
-              <Button onClick={handleCreateProject} className="w-full">
-                Create Project
+        {user?.role === "manager" && (
+          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+            <DialogTrigger asChild>
+              <Button>
+                <Plus className="h-4 w-4 mr-2" />
+                New Project
               </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Create New Project</DialogTitle>
+                <DialogDescription>
+                  Add a new project to your workspace
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="name">Project Name *</Label>
+                  <Input
+                    id="name"
+                    placeholder="E-commerce Platform"
+                    value={newProject.name}
+                    onChange={(e) => setNewProject({ ...newProject, name: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="description">Description *</Label>
+                  <Textarea
+                    id="description"
+                    placeholder="A modern e-commerce solution..."
+                    value={newProject.description}
+                    onChange={(e) => setNewProject({ ...newProject, description: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="github">GitHub URL</Label>
+                  <Input
+                    id="github"
+                    placeholder="https://github.com/company/project"
+                    value={newProject.githubUrl}
+                    onChange={(e) => setNewProject({ ...newProject, githubUrl: e.target.value })}
+                  />
+                </div>
+                <Button onClick={handleCreateProject} className="w-full">
+                  Create Project
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+        )}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

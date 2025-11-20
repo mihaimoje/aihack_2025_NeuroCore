@@ -1,15 +1,31 @@
 import { useParams, Link } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { projectsApi, tasksApi } from "@/lib/api";
+import { projectsApi, tasksApi, teamsApi } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { ArrowLeft, ExternalLink, GitBranch, GitPullRequest, AlertCircle, Users } from "lucide-react";
+import { ArrowLeft, ExternalLink, GitBranch, GitPullRequest, AlertCircle, Users, Plus, X } from "lucide-react";
 import { GithubActivityPanel } from "@/components/GithubActivityPanel";
 import { TaskList } from "@/components/TaskList";
+import { useAuth } from "@/contexts/AuthContext";
 import NotFound from "./NotFound";
 import { toast } from "sonner";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 // Mock GitHub activity for now
 const mockGitHubActivity: any = {
@@ -22,14 +38,18 @@ const mockGitHubActivity: any = {
 
 export default function ProjectDetails() {
   const { id } = useParams();
+  const { user } = useAuth();
   const [project, setProject] = useState<any>(null);
   const [projectTasks, setProjectTasks] = useState<any[]>([]);
+  const [teamMembers, setTeamMembers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [selectedMember, setSelectedMember] = useState<string>("");
 
   useEffect(() => {
     const fetchData = async () => {
       if (!id) return;
-      
+
       try {
         const [projectData, tasksData] = await Promise.all([
           projectsApi.getById(id),
@@ -37,6 +57,12 @@ export default function ProjectDetails() {
         ]);
         setProject(projectData);
         setProjectTasks(tasksData);
+
+        // Fetch team members if user is manager
+        if (user?.role === 'manager' && projectData.teamId) {
+          const teamData = await teamsApi.getById(projectData.teamId._id || projectData.teamId);
+          setTeamMembers(teamData.members || []);
+        }
       } catch (error) {
         toast.error("Failed to load project");
       } finally {
@@ -44,7 +70,40 @@ export default function ProjectDetails() {
       }
     };
     fetchData();
-  }, [id]);
+  }, [id, user]);
+
+  const handleAddMember = async () => {
+    if (!selectedMember || !id) return;
+
+    try {
+      const updatedProject = await projectsApi.addMember(id, selectedMember);
+      setProject(updatedProject);
+      setSelectedMember("");
+      setDialogOpen(false);
+      toast.success("Member added successfully");
+    } catch (error) {
+      toast.error("Failed to add member");
+    }
+  };
+
+  const handleRemoveMember = async (memberId: string) => {
+    if (!id) return;
+
+    try {
+      const updatedProject = await projectsApi.removeMember(id, memberId);
+      setProject(updatedProject);
+      toast.success("Member removed successfully");
+    } catch (error) {
+      toast.error("Failed to remove member");
+    }
+  };
+
+  // Filter team members who are not already in the project
+  const availableMembers = teamMembers.filter(
+    member => !project?.members?.some((pm: any) =>
+      (pm._id || pm.id || pm) === (member._id || member.id || member)
+    )
+  );
 
   if (loading) {
     return <div>Loading...</div>;
@@ -161,6 +220,84 @@ export default function ProjectDetails() {
 
         <div className="space-y-6">
           {githubActivity && <GithubActivityPanel activity={githubActivity} />}
+
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>Project Members</CardTitle>
+                  <CardDescription>Team members working on this project</CardDescription>
+                </div>
+                {user?.role === 'manager' && availableMembers.length > 0 && (
+                  <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+                    <DialogTrigger asChild>
+                      <Button size="sm">
+                        <Plus className="h-4 w-4 mr-1" />
+                        Add
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Add Team Member</DialogTitle>
+                        <DialogDescription>
+                          Select a team member to add to this project
+                        </DialogDescription>
+                      </DialogHeader>
+                      <div className="space-y-4">
+                        <Select value={selectedMember} onValueChange={setSelectedMember}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select a member" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {availableMembers.map((member) => (
+                              <SelectItem key={member._id || member.id} value={member._id || member.id}>
+                                {member.name} ({member.role})
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Button onClick={handleAddMember} className="w-full" disabled={!selectedMember}>
+                          Add Member
+                        </Button>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+                )}
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                {project.members && project.members.length > 0 ? (
+                  project.members.map((member: any) => (
+                    <div key={member._id || member.id || member} className="flex items-center justify-between p-2 rounded-lg border">
+                      <div className="flex items-center space-x-2">
+                        <div className="h-8 w-8 rounded-full bg-secondary flex items-center justify-center">
+                          <Users className="h-4 w-4" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium">{member.name || 'Unknown'}</p>
+                          <p className="text-xs text-muted-foreground">{member.role || 'Member'}</p>
+                        </div>
+                      </div>
+                      {user?.role === 'manager' && member._id !== user.id && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleRemoveMember(member._id || member.id || member)}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-sm text-muted-foreground text-center py-4">
+                    No members assigned to this project
+                  </p>
+                )}
+              </div>
+            </CardContent>
+          </Card>
         </div>
       </div>
     </div>

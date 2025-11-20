@@ -93,6 +93,14 @@ export const projectsApi = {
     return response.json();
   },
 
+  getUserProjects: async (userId: string) => {
+    const response = await fetch(`${API_URL}/projects/user/${userId}`, {
+      headers: getHeaders(),
+    });
+    if (!response.ok) throw new Error('Failed to fetch user projects');
+    return response.json();
+  },
+
   getById: async (id: string) => {
     const response = await fetch(`${API_URL}/projects/${id}`, {
       headers: getHeaders(),
@@ -127,6 +135,25 @@ export const projectsApi = {
       headers: getHeaders(),
     });
     if (!response.ok) throw new Error('Failed to delete project');
+    return response.json();
+  },
+
+  addMember: async (projectId: string, userId: string) => {
+    const response = await fetch(`${API_URL}/projects/${projectId}/members`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify({ userId }),
+    });
+    if (!response.ok) throw new Error('Failed to add member');
+    return response.json();
+  },
+
+  removeMember: async (projectId: string, userId: string) => {
+    const response = await fetch(`${API_URL}/projects/${projectId}/members/${userId}`, {
+      method: 'DELETE',
+      headers: getHeaders(),
+    });
+    if (!response.ok) throw new Error('Failed to remove member');
     return response.json();
   },
 };
