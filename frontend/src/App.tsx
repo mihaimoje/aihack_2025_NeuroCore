@@ -21,6 +21,7 @@ import MyTasks from "./pages/MyTasks";
 import Insights from "./pages/Insights";
 import Burnout from "./pages/Burnout";
 import Settings from "./pages/Settings";
+import Profile from "./pages/Profile";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -35,7 +36,7 @@ const App = () => (
           <Routes>
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
-            
+
             <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
               {/* Admin routes */}
               <Route path="/admin" element={
@@ -43,7 +44,7 @@ const App = () => (
                   <DashboardAdmin />
                 </ProtectedRoute>
               } />
-              
+
               {/* Manager routes */}
               <Route path="/manager" element={
                 <ProtectedRoute allowedRoles={["manager"]}>
@@ -65,33 +66,34 @@ const App = () => (
                   <Insights />
                 </ProtectedRoute>
               } />
-              
+
               {/* User routes */}
               <Route path="/dashboard" element={
-                <ProtectedRoute allowedRoles={["user"]}>
+                <ProtectedRoute allowedRoles={["developer"]}>
                   <DashboardUser />
                 </ProtectedRoute>
               } />
               <Route path="/my-tasks" element={
-                <ProtectedRoute allowedRoles={["user"]}>
+                <ProtectedRoute allowedRoles={["developer"]}>
                   <MyTasks />
                 </ProtectedRoute>
               } />
               <Route path="/burnout" element={
-                <ProtectedRoute allowedRoles={["user"]}>
+                <ProtectedRoute allowedRoles={["developer"]}>
                   <Burnout />
                 </ProtectedRoute>
               } />
-              
+
               {/* Shared routes */}
               <Route path="/projects" element={<Projects />} />
               <Route path="/projects/:id" element={<ProjectDetails />} />
               <Route path="/tasks/:id" element={<TaskDetail />} />
               <Route path="/settings" element={<Settings />} />
-              
+              <Route path="/profile" element={<Profile />} />
+
               <Route path="/" element={<Navigate to="/dashboard" replace />} />
             </Route>
-            
+
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthProvider>

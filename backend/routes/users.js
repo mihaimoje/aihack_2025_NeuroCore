@@ -22,22 +22,34 @@ router.get('/', async (req, res) => {
     }
 });
 
-// Get user by ID
+// Get user by ID with full team details
 router.get('/:id', async (req, res) => {
     try {
-        const user = await User.findById(req.params.id).select('-password').populate('teamId');
+        const user = await User.findById(req.params.id)
+            .select('-password -githubToken')
+            .populate({
+                path: 'teamId',
+                populate: {
+                    path: 'managerId members',
+                    select: 'name username email role'
+                }
+            });
+
         if (!user) {
             return res.status(404).json({ message: 'User not found' });
         }
+
         res.json({
             id: user._id,
             name: user.name,
             username: user.username,
             email: user.email,
             role: user.role,
-            teamId: user.teamId,
+            team: user.teamId,
             githubUsername: user.githubUsername,
-            createdAt: user.createdAt
+            githubRepos: user.githubRepos,
+            createdAt: user.createdAt,
+            updatedAt: user.updatedAt
         });
     } catch (error) {
         res.status(500).json({ message: error.message });
@@ -53,11 +65,11 @@ router.put('/:id', async (req, res) => {
             { name, email, role, teamId, githubUsername, githubToken },
             { new: true }
         ).select('-password');
-        
+
         if (!user) {
             return res.status(404).json({ message: 'User not found' });
         }
-        
+
         res.json({
             id: user._id,
             name: user.name,

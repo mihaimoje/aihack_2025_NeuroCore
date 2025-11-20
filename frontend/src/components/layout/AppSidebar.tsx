@@ -7,6 +7,7 @@ import {
   Activity,
   Settings,
   UsersRound,
+  UserCircle,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
@@ -49,11 +50,11 @@ export const AppSidebar = () => {
     { title: "Burnout", url: "/burnout", icon: Activity },
   ];
 
-  const items = user?.role === "superadmin" 
-    ? adminItems 
-    : user?.role === "manager" 
-    ? managerItems 
-    : userItems;
+  const items = user?.role === "superadmin"
+    ? adminItems
+    : user?.role === "manager"
+      ? managerItems
+      : userItems;
 
   const isActive = (path: string) => location.pathname === path;
 
@@ -93,6 +94,18 @@ export const AppSidebar = () => {
         <SidebarGroup className="mt-auto">
           <SidebarGroupContent>
             <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild>
+                  <NavLink
+                    to="/profile"
+                    className={`flex items-center gap-3 ${collapsed ? "justify-center" : ""}`}
+                    activeClassName="bg-primary text-primary-foreground font-medium"
+                  >
+                    <UserCircle className={`h-5 w-5 ${collapsed ? "" : "flex-shrink-0"}`} />
+                    {!collapsed && <span>Profile</span>}
+                  </NavLink>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
               <SidebarMenuItem>
                 <SidebarMenuButton asChild>
                   <NavLink
