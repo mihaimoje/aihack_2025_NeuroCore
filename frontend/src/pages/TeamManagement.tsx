@@ -3,9 +3,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { usersApi, authApi, teamsApi } from "@/lib/api";
+import { usersApi, teamsApi, invitationsApi } from "@/lib/api";
 import { UserCard } from "@/components/UserCard";
-import { Plus, Users } from "lucide-react";
+import { Plus, Users, Mail, Clock, CheckCircle } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import {
@@ -16,24 +16,33 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
 
 export default function TeamManagement() {
   const { user } = useAuth();
   const [teamMembers, setTeamMembers] = useState<any[]>([]);
   const [teams, setTeams] = useState<any[]>([]);
+  const [invitations, setInvitations] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [newUsername, setNewUsername] = useState("");
-  const [newEmail, setNewEmail] = useState("");
-  const [newName, setNewName] = useState("");
-  const [newRole, setNewRole] = useState("");
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteRole, setInviteRole] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [sendingInvite, setSendingInvite] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [usersData, teamsData] = await Promise.all([
+        const [usersData, teamsData, invitesData] = await Promise.all([
           usersApi.getAll(),
-          teamsApi.getAll()
+          teamsApi.getAll(),
+          user?.role === "manager" ? invitationsApi.getAll(user.id) : Promise.resolve([])
         ]);
         
         // Get all member IDs from all teams
@@ -51,38 +60,43 @@ export default function TeamManagement() {
         
         setTeamMembers(membersInTeams);
         setTeams(teamsData);
+        setInvitations(invitesData);
       } catch (error) {
-        toast.error("Failed to load team members");
+        toast.error("Failed to load team data");
       } finally {
         setLoading(false);
       }
     };
     fetchData();
-  }, []);
+  }, [user]);
 
-  const handleAddMember = async () => {
-    if (!newUsername || !newEmail || !newName || !newRole) {
+  const handleSendInvitation = async () => {
+    if (!inviteEmail || !inviteRole) {
       toast.error("Please fill in all fields");
       return;
     }
 
-    if (!["manager", "developer", "tester"].includes(newRole)) {
-      toast.error("Role must be 'manager', 'developer', or 'tester'");
+    if (!["developer", "tester"].includes(inviteRole)) {
+      toast.error("Role must be 'developer' or 'tester'");
       return;
     }
 
+    setSendingInvite(true);
     try {
-      const response = await authApi.register(newName, newUsername, newEmail, "password123", newRole);
-      const newMember = response.user;
-      setTeamMembers([...teamMembers, newMember]);
-      setNewUsername("");
-      setNewEmail("");
-      setNewName("");
-      setNewRole("");
+      await invitationsApi.send(inviteEmail, inviteRole, user!.id);
+      
+      // Refresh invitations list
+      const invitesData = await invitationsApi.getAll(user!.id);
+      setInvitations(invitesData);
+      
+      setInviteEmail("");
+      setInviteRole("");
       setDialogOpen(false);
-      toast.success("Team member added successfully");
-    } catch (error) {
-      toast.error("Failed to add team member");
+      toast.success("Invitation sent successfully!");
+    } catch (error: any) {
+      toast.error(error.message || "Failed to send invitation");
+    } finally {
+      setSendingInvite(false);
     }
   };
 
@@ -141,65 +155,111 @@ export default function TeamManagement() {
           <p className="text-muted-foreground mt-1">Manage your team members</p>
         </div>
 
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="h-4 w-4 mr-2" />
-              Add Member
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Add Team Member</DialogTitle>
-              <DialogDescription>
-                Add a new member to your team
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="username">Username</Label>
-                <Input
-                  id="username"
-                  placeholder="johndoe"
-                  value={newUsername}
-                  onChange={(e) => setNewUsername(e.target.value)}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="name">Full Name</Label>
-                <Input
-                  id="name"
-                  placeholder="John Doe"
-                  value={newName}
-                  onChange={(e) => setNewName(e.target.value)}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="john@company.com"
-                  value={newEmail}
-                  onChange={(e) => setNewEmail(e.target.value)}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="role">Role (manager, developer, or tester)</Label>
-                <Input
-                  id="role"
-                  placeholder="developer"
-                  value={newRole}
-                  onChange={(e) => setNewRole(e.target.value)}
-                />
-              </div>
-              <Button onClick={handleAddMember} className="w-full">
-                Add Member
+        {user?.role === "manager" && (
+          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+            <DialogTrigger asChild>
+              <Button>
+                <Mail className="h-4 w-4 mr-2" />
+                Invite Member
               </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Invite Team Member</DialogTitle>
+                <DialogDescription>
+                  Send an email invitation to join your team
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email Address</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="john@company.com"
+                    value={inviteEmail}
+                    onChange={(e) => setInviteEmail(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="role">Role</Label>
+                  <Select value={inviteRole} onValueChange={setInviteRole}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a role" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="developer">Developer</SelectItem>
+                      <SelectItem value="tester">Tester</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Button onClick={handleSendInvitation} className="w-full" disabled={sendingInvite}>
+                  {sendingInvite ? "Sending..." : "Send Invitation"}
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+        )}
       </div>
+
+      {user?.role === "manager" && invitations.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Mail className="h-5 w-5" />
+              Pending Invitations ({invitations.filter((i: any) => i.status === "pending").length})
+            </CardTitle>
+            <CardDescription>Team invitations waiting for acceptance</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {invitations
+                .filter((inv: any) => inv.status === "pending")
+                .map((inv: any) => (
+                  <div
+                    key={inv.id || inv._id}
+                    className="flex items-center justify-between p-4 border rounded-lg"
+                  >
+                    <div className="flex items-center gap-3">
+                      <Mail className="h-5 w-5 text-blue-500" />
+                      <div>
+                        <p className="font-medium">{inv.email}</p>
+                        <p className="text-sm text-muted-foreground">
+                          Role: <Badge variant="outline">{inv.role}</Badge>
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Clock className="h-4 w-4" />
+                      Expires: {new Date(inv.expiresAt).toLocaleDateString()}
+                    </div>
+                  </div>
+                ))}
+              {invitations
+                .filter((inv: any) => inv.status === "accepted")
+                .map((inv: any) => (
+                  <div
+                    key={inv.id || inv._id}
+                    className="flex items-center justify-between p-4 border rounded-lg bg-green-50"
+                  >
+                    <div className="flex items-center gap-3">
+                      <CheckCircle className="h-5 w-5 text-green-500" />
+                      <div>
+                        <p className="font-medium">{inv.email}</p>
+                        <p className="text-sm text-muted-foreground">
+                          Role: <Badge variant="outline">{inv.role}</Badge>
+                        </p>
+                      </div>
+                    </div>
+                    <Badge variant="outline" className="text-green-600 border-green-600">
+                      Accepted
+                    </Badge>
+                  </div>
+                ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader>

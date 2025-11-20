@@ -8,7 +8,7 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { AppLayout } from "@/components/layout/AppLayout";
 
 import Login from "./pages/Login";
-import Register from "./pages/Register";
+import AcceptInvitation from "./pages/AcceptInvitation";
 import DashboardAdmin from "./pages/DashboardAdmin";
 import DashboardManager from "./pages/DashboardManager";
 import DashboardUser from "./pages/DashboardUser";
@@ -35,7 +35,7 @@ const App = () => (
         <AuthProvider>
           <Routes>
             <Route path="/login" element={<Login />} />
-            <Route path="/register" element={<Register />} />
+            <Route path="/accept-invitation/:token" element={<AcceptInvitation />} />
 
             <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
               {/* Admin routes */}

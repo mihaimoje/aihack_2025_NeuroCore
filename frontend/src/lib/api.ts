@@ -375,3 +375,41 @@ export const insightsApi = {
     return response.json();
   },
 };
+
+// Invitations API
+export const invitationsApi = {
+  send: async (email: string, role: string, managerId: string) => {
+    const response = await fetch(`${API_URL}/invitations/send`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify({ email, role, managerId }),
+    });
+    if (!response.ok) throw new Error('Failed to send invitation');
+    return response.json();
+  },
+
+  verify: async (token: string) => {
+    const response = await fetch(`${API_URL}/invitations/verify/${token}`);
+    if (!response.ok) throw new Error('Failed to verify invitation');
+    return response.json();
+  },
+
+  accept: async (token: string, name: string, username: string, password: string) => {
+    const response = await fetch(`${API_URL}/invitations/accept/${token}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, username, password }),
+    });
+    if (!response.ok) throw new Error('Failed to accept invitation');
+    return response.json();
+  },
+
+  getAll: async (managerId?: string) => {
+    const params = managerId ? `?managerId=${managerId}` : '';
+    const response = await fetch(`${API_URL}/invitations${params}`, {
+      headers: getHeaders(),
+    });
+    if (!response.ok) throw new Error('Failed to fetch invitations');
+    return response.json();
+  },
+};
