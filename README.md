@@ -243,7 +243,7 @@ Contribuțiile sunt binevenite! Pentru schimbări majore, deschide mai întâi u
 
 ## 👨‍💻 Echipa
 
-Dezvoltat pentru UniHack 2025 by NeuroCore Team
+Dezvoltat pentru GenAI Hackaton - 3Pillar 2025 by NeuroCore Team
 
 ---
 
