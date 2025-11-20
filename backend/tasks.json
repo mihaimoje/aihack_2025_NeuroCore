@@ -1,0 +1,23 @@
+﻿
+
+StatusCode        : 200
+StatusDescription : OK
+Content           : [{"id":"691ef50f873ec4ee53b3c117","title":"Implement user authentication","description":"Add JWT-based authentication 
+                    system","status":"in-progress","priority":"high","assigneeId":"691ef50e873ec4ee53b...
+RawContent        : HTTP/1.1 200 OK
+                    Access-Control-Allow-Origin: *
+                    Connection: keep-alive
+                    Keep-Alive: timeout=5
+                    Content-Length: 2130
+                    Content-Type: application/json; charset=utf-8
+                    Date: Thu, 20 Nov 2025 11:02:12 GMT...
+Forms             : {}
+Headers           : {[Access-Control-Allow-Origin, *], [Connection, keep-alive], [Keep-Alive, timeout=5], [Content-Length, 2130]...}
+Images            : {}
+InputFields       : {}
+Links             : {}
+ParsedHtml        : mshtml.HTMLDocumentClass
+RawContentLength  : 2130
+
+
+

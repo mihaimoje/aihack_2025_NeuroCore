@@ -1,13 +1,40 @@
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { mockTasks } from "@/data/mockData";
 import { useAuth } from "@/contexts/AuthContext";
 import { TaskList } from "@/components/TaskList";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CheckSquare, Clock, AlertTriangle } from "lucide-react";
+import { tasksApi } from "@/lib/api";
+import { toast } from "sonner";
 
 export default function MyTasks() {
   const { user } = useAuth();
-  const myTasks = mockTasks.filter(t => t.assigneeId === user?.id);
+  const [myTasks, setMyTasks] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchMyTasks = async () => {
+      if (!user?.id) {
+        console.log("No user ID found, user:", user);
+        setLoading(false);
+        return;
+      }
+      
+      try {
+        console.log("Fetching tasks for user:", user.id);
+        const tasks = await tasksApi.getAll({ assignedTo: user.id });
+        console.log("Fetched tasks:", tasks);
+        setMyTasks(tasks);
+      } catch (error) {
+        toast.error("Failed to load your tasks");
+        console.error("Error fetching tasks:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchMyTasks();
+  }, [user?.id]);
 
   const todoTasks = myTasks.filter(t => t.status === "todo");
   const inProgressTasks = myTasks.filter(t => t.status === "in-progress");
@@ -17,6 +44,17 @@ export default function MyTasks() {
 
   const totalEstimated = myTasks.reduce((sum, t) => sum + t.estimatedHours, 0);
   const totalActual = myTasks.reduce((sum, t) => sum + t.actualHours, 0);
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold">My Tasks</h1>
+          <p className="text-muted-foreground mt-1">Loading your tasks...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
