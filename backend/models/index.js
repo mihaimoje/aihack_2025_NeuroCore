@@ -7,6 +7,7 @@ import GithubActivity from './githubActivity.js';
 import Insight from './insight.js';
 import BurnoutScore from './burnoutScore.js';
 import AiCoachLog from './aiCoachLog.js';
+import Notification from './notification.js';
 
 // exportăm modelele
 export {
@@ -17,5 +18,6 @@ export {
     GithubActivity,
     Insight,
     BurnoutScore,
-    AiCoachLog
+    AiCoachLog,
+    Notification
 };

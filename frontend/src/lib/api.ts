@@ -536,3 +536,59 @@ export const githubApi = {
     return response.json();
   },
 };
+
+// Notifications API
+export const notificationsApi = {
+  getAll: async (userId: string) => {
+    const response = await fetch(`${API_URL}/notifications?userId=${userId}`, {
+      headers: getHeaders(),
+    });
+    if (!response.ok) throw new Error('Failed to fetch notifications');
+    return response.json();
+  },
+
+  getUnreadCount: async (userId: string) => {
+    const response = await fetch(`${API_URL}/notifications/unread-count?userId=${userId}`, {
+      headers: getHeaders(),
+    });
+    if (!response.ok) throw new Error('Failed to fetch unread count');
+    return response.json();
+  },
+
+  markAsRead: async (notificationId: string) => {
+    const response = await fetch(`${API_URL}/notifications/${notificationId}/read`, {
+      method: 'PATCH',
+      headers: getHeaders(),
+    });
+    if (!response.ok) throw new Error('Failed to mark notification as read');
+    return response.json();
+  },
+
+  markAllAsRead: async (userId: string) => {
+    const response = await fetch(`${API_URL}/notifications/mark-all-read`, {
+      method: 'PATCH',
+      headers: getHeaders(),
+      body: JSON.stringify({ userId }),
+    });
+    if (!response.ok) throw new Error('Failed to mark all notifications as read');
+    return response.json();
+  },
+
+  delete: async (notificationId: string) => {
+    const response = await fetch(`${API_URL}/notifications/${notificationId}`, {
+      method: 'DELETE',
+      headers: getHeaders(),
+    });
+    if (!response.ok) throw new Error('Failed to delete notification');
+    return response.json();
+  },
+
+  clearRead: async (userId: string) => {
+    const response = await fetch(`${API_URL}/notifications/clear-read?userId=${userId}`, {
+      method: 'DELETE',
+      headers: getHeaders(),
+    });
+    if (!response.ok) throw new Error('Failed to clear read notifications');
+    return response.json();
+  },
+};

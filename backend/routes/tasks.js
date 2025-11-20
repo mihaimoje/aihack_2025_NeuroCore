@@ -1,5 +1,8 @@
 import express from 'express';
 import Task from '../models/task.js';
+import User from '../models/user.js';
+import Team from '../models/team.js';
+import Notification from '../models/notification.js';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
 const router = express.Router();
@@ -188,6 +191,32 @@ router.patch('/:id/status', async (req, res) => {
 
         if (!task) {
             return res.status(404).json({ message: 'Task not found' });
+        }
+
+        // Create notification for manager when task is completed
+        if (normalizedStatus === 'done' && task.assignedTo) {
+            try {
+                // Find the team where this user belongs
+                const team = await Team.findOne({ members: task.assignedTo._id });
+                
+                if (team && team.managerId) {
+                    // Check if manager is different from the person completing the task
+                    if (team.managerId.toString() !== task.assignedTo._id.toString()) {
+                        await Notification.create({
+                            userId: team.managerId,
+                            type: 'task_completed',
+                            title: 'Task Completed',
+                            message: `${task.assignedTo.name} completed task: "${task.title}"`,
+                            taskId: task._id,
+                            projectId: task.projectId._id
+                        });
+                        console.log(`Notification created for manager ${team.managerId}`);
+                    }
+                }
+            } catch (notifError) {
+                console.error('Error creating notification:', notifError);
+                // Don't fail the request if notification creation fails
+            }
         }
 
         res.json({

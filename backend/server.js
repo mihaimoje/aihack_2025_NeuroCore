@@ -16,6 +16,7 @@ import insightRoutes from "./routes/insights.js";
 import invitationRoutes from "./routes/invitations.js";
 import aiCoachRoutes from "./routes/aiCoach.js";
 import githubRoutes from "./routes/github.js";
+import notificationRoutes from "./routes/notifications.js";
 
 const app = express();
 const PORT = 3000;
@@ -39,6 +40,7 @@ app.use("/api/insights", insightRoutes);
 app.use("/api/invitations", invitationRoutes);
 app.use("/api/ai-coach", aiCoachRoutes);
 app.use("/api/github", githubRoutes);
+app.use("/api/notifications", notificationRoutes);
 
 // Health check
 app.get("/api/health", (req, res) => {
