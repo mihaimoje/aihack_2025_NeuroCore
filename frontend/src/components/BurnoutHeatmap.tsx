@@ -2,21 +2,26 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 
 interface BurnoutHeatmapProps {
   score: number;
-  weeklyHours: number[];
+  dailyHours: Array<{ date: string; hours: number; dayOfWeek: string }>;
 }
 
-export const BurnoutHeatmap = ({ score, weeklyHours }: BurnoutHeatmapProps) => {
-  const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+export const BurnoutHeatmap = ({ score, dailyHours }: BurnoutHeatmapProps) => {
+  const days = [ 'Sun','Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   const weeks = 4;
 
-  // Generate mock heatmap data for the last 4 weeks
-  const heatmapData = Array.from({ length: weeks }, (_, weekIndex) => 
-    weeklyHours.map((hours, dayIndex) => {
-      // Vary the data slightly for different weeks
-      const variance = (Math.random() - 0.5) * 10;
-      return Math.max(0, hours + variance);
-    })
-  );
+  // Convert dailyHours array into 4 weeks x 7 days grid
+  const heatmapData = Array.from({ length: weeks }, (_, weekIndex) => {
+    const weekData: number[] = [];
+    
+    for (let dayIndex = 0; dayIndex < 7; dayIndex++) {
+      // Calculate the actual day index in the dailyHours array (last 28 days)
+      const dayOffset = (weeks - 1 - weekIndex) * 7 + dayIndex;
+      const dailyData = dailyHours[dayOffset];
+      weekData.push(dailyData?.hours || 0);
+    }
+    
+    return weekData;
+  });
 
   const getIntensityColor = (hours: number) => {
     if (hours < 6) return "bg-success/20";
@@ -46,7 +51,7 @@ export const BurnoutHeatmap = ({ score, weeklyHours }: BurnoutHeatmapProps) => {
           {heatmapData.map((week, weekIndex) => (
             <div key={weekIndex} className="flex gap-2">
               <div className="w-16 text-xs text-muted-foreground flex items-center">
-                Week {weeks - weekIndex}
+                Week {weekIndex + 1}
               </div>
               {week.map((hours, dayIndex) => (
                 <div

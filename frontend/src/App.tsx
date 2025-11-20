@@ -79,7 +79,7 @@ const App = () => (
                 </ProtectedRoute>
               } />
               <Route path="/burnout" element={
-                <ProtectedRoute allowedRoles={["developer"]}>
+                <ProtectedRoute allowedRoles={["manager"]}>
                   <Burnout />
                 </ProtectedRoute>
               } />

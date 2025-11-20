@@ -344,6 +344,29 @@ export const burnoutApi = {
     if (!response.ok) throw new Error('Failed to delete burnout score');
     return response.json();
   },
+
+  getTeamBurnout: async (managerId: string, forceRefresh = false) => {
+    const params = new URLSearchParams();
+    if (forceRefresh) params.append('forceRefresh', 'true');
+    
+    const url = params.toString() 
+      ? `${API_URL}/burnout/team/${managerId}?${params}` 
+      : `${API_URL}/burnout/team/${managerId}`;
+    
+    const response = await fetch(url, {
+      headers: getHeaders(),
+    });
+    if (!response.ok) throw new Error('Failed to fetch team burnout');
+    return response.json();
+  },
+
+  getTeamHours: async (managerId: string) => {
+    const response = await fetch(`${API_URL}/burnout/team/${managerId}/hours`, {
+      headers: getHeaders(),
+    });
+    if (!response.ok) throw new Error('Failed to fetch team hours');
+    return response.json();
+  },
 };
 
 // Insights API

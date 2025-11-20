@@ -41,13 +41,13 @@ export const AppSidebar = () => {
     { title: "Projects", url: "/projects", icon: FolderKanban },
     { title: "Tasks", url: "/tasks", icon: CheckSquare },
     { title: "Insights", url: "/insights", icon: BarChart3 },
+    { title: "Team Burnout", url: "/burnout", icon: Activity },
   ];
 
   const userItems = [
     { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
     { title: "My Tasks", url: "/my-tasks", icon: CheckSquare },
     { title: "Projects", url: "/projects", icon: FolderKanban },
-    { title: "Burnout", url: "/burnout", icon: Activity },
   ];
 
   const items = user?.role === "superadmin"

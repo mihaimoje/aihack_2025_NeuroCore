@@ -291,4 +291,186 @@ router.delete('/:id', async (req, res) => {
     }
 });
 
+// Get team burnout scores for a manager
+router.get('/team/:managerId', async (req, res) => {
+    try {
+        const { managerId } = req.params;
+        const { forceRefresh } = req.query;
+        
+        // Find all teams where user is manager
+        const Team = (await import('../models/team.js')).default;
+        const teams = await Team.find({ managerId }).populate('members', 'name email role githubUsername');
+        
+        if (!teams || teams.length === 0) {
+            return res.status(404).json({ message: 'No teams found for this manager' });
+        }
+        
+        // Get all team members
+        const allMembers = teams.flatMap(team => team.members);
+        const uniqueMembers = [...new Map(allMembers.map(m => [m._id.toString(), m])).values()];
+        
+        // Calculate burnout for each member
+        const teamBurnout = [];
+        for (const member of uniqueMembers) {
+            try {
+                // Check for recent score
+                let burnoutData;
+                const recentScore = await BurnoutScore.findOne({ 
+                    userId: member._id,
+                    createdAt: { $gte: new Date(Date.now() - 60 * 60 * 1000) }
+                }).sort({ createdAt: -1 });
+                
+                if (recentScore && forceRefresh !== 'true') {
+                    burnoutData = recentScore;
+                } else {
+                    // Generate new score
+                    const aiResult = await calculateBurnoutWithAI(member._id);
+                    
+                    const now = new Date();
+                    const week = Math.ceil((now.getDate() + now.getDay()) / 7);
+                    const year = now.getFullYear();
+                    
+                    const burnoutScore = new BurnoutScore({
+                        userId: member._id,
+                        score: aiResult.score,
+                        riskLevel: aiResult.riskLevel,
+                        week,
+                        year,
+                        factors: aiResult.factors,
+                        analysis: aiResult.analysis,
+                        recommendations: aiResult.recommendations,
+                        modelUsed: aiResult.modelUsed
+                    });
+                    
+                    await burnoutScore.save();
+                    burnoutData = burnoutScore;
+                }
+                
+                teamBurnout.push({
+                    userId: member._id,
+                    name: member.name,
+                    email: member.email,
+                    role: member.role,
+                    githubUsername: member.githubUsername,
+                    score: burnoutData.score,
+                    riskLevel: burnoutData.riskLevel,
+                    factors: burnoutData.factors,
+                    analysis: burnoutData.analysis,
+                    recommendations: burnoutData.recommendations,
+                    lastUpdated: burnoutData.createdAt
+                });
+            } catch (error) {
+                console.error(`Error calculating burnout for ${member.name}:`, error);
+                teamBurnout.push({
+                    userId: member._id,
+                    name: member.name,
+                    email: member.email,
+                    role: member.role,
+                    score: 0,
+                    riskLevel: 'low',
+                    error: 'Failed to calculate'
+                });
+            }
+        }
+        
+        // Calculate team averages
+        const avgScore = teamBurnout.reduce((sum, m) => sum + (m.score || 0), 0) / teamBurnout.length;
+        const highRiskCount = teamBurnout.filter(m => m.riskLevel === 'high').length;
+        const mediumRiskCount = teamBurnout.filter(m => m.riskLevel === 'medium').length;
+        const lowRiskCount = teamBurnout.filter(m => m.riskLevel === 'low').length;
+        
+        res.json({
+            managerId,
+            teamSize: teamBurnout.length,
+            averageScore: Math.round(avgScore),
+            riskDistribution: {
+                high: highRiskCount,
+                medium: mediumRiskCount,
+                low: lowRiskCount
+            },
+            members: teamBurnout.sort((a, b) => (b.score || 0) - (a.score || 0))
+        });
+    } catch (error) {
+        console.error('Error fetching team burnout:', error);
+        res.status(500).json({ message: error.message });
+    }
+});
+
+// Get team activity hours (for heatmap)
+router.get('/team/:managerId/hours', async (req, res) => {
+    try {
+        const { managerId } = req.params;
+        
+        // Find all teams where user is manager
+        const Team = (await import('../models/team.js')).default;
+        const teams = await Team.find({ managerId }).populate('members');
+        
+        if (!teams || teams.length === 0) {
+            return res.status(404).json({ message: 'No teams found for this manager' });
+        }
+        
+        // Get all team member IDs
+        const memberIds = teams.flatMap(team => team.members.map(m => m._id));
+        
+        // Get all completed tasks for team members in the last 4 weeks
+        const fourWeeksAgo = new Date();
+        fourWeeksAgo.setDate(fourWeeksAgo.getDate() - 28);
+        
+        const tasks = await Task.find({
+            assignedTo: { $in: memberIds },
+            status: 'done',
+            completedAt: { $gte: fourWeeksAgo }
+        }).select('startedAt completedAt assignedTo');
+        
+        // Calculate daily hours for the last 28 days
+        const dailyHours = {};
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        
+        // Initialize all days with 0 hours
+        for (let i = 0; i < 28; i++) {
+            const date = new Date(today);
+            date.setDate(date.getDate() - i);
+            const dateKey = date.toISOString().split('T')[0];
+            dailyHours[dateKey] = 0;
+        }
+        
+        // Calculate hours from tasks
+        tasks.forEach(task => {
+            if (task.startedAt && task.completedAt) {
+                const completedDate = new Date(task.completedAt);
+                completedDate.setHours(0, 0, 0, 0);
+                const dateKey = completedDate.toISOString().split('T')[0];
+                
+                if (dailyHours.hasOwnProperty(dateKey)) {
+                    const durationMs = new Date(task.completedAt) - new Date(task.startedAt);
+                    const durationHours = durationMs / (1000 * 60 * 60);
+                    dailyHours[dateKey] += durationHours;
+                }
+            }
+        });
+        
+        // Convert to array format for frontend
+        const hoursArray = Object.entries(dailyHours)
+            .sort(([dateA], [dateB]) => dateA.localeCompare(dateB))
+            .map(([date, hours]) => ({
+                date,
+                hours: Math.round(hours * 10) / 10,
+                dayOfWeek: new Date(date).toLocaleString('en-US', { weekday: 'short' })
+            }));
+        
+        res.json({
+            managerId,
+            period: {
+                start: fourWeeksAgo.toISOString().split('T')[0],
+                end: today.toISOString().split('T')[0]
+            },
+            dailyHours: hoursArray
+        });
+    } catch (error) {
+        console.error('Error fetching team hours:', error);
+        res.status(500).json({ message: error.message });
+    }
+});
+
 export default router;
