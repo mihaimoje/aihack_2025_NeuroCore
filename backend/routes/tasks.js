@@ -2,10 +2,71 @@ import express from 'express';
 import Task from '../models/task.js';
 import User from '../models/user.js';
 import Team from '../models/team.js';
+import Project from '../models/project.js';
 import Notification from '../models/notification.js';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { Octokit } from '@octokit/rest';
 
 const router = express.Router();
+
+// Helper function to parse GitHub URL
+const parseGithubUrl = (url) => {
+    if (!url) return null;
+    const match = url.match(/github\.com\/([^\/]+)\/([^\/]+)/);
+    if (!match) return null;
+    return { owner: match[1], repo: match[2].replace('.git', '') };
+};
+
+// Helper function to create GitHub issue
+const createGithubIssue = async (project, task, assignedUser, creatorUser) => {
+    try {
+        if (!project.githubLink) {
+            console.log('No GitHub link for project');
+            return null;
+        }
+
+        const githubInfo = parseGithubUrl(project.githubLink);
+        if (!githubInfo) {
+            console.log('Invalid GitHub URL format');
+            return null;
+        }
+
+        // Use creator's GitHub token from database (usually the manager)
+        const githubToken = creatorUser?.githubToken || process.env.GITHUB_TOKEN;
+        if (!githubToken) {
+            console.log('No GitHub token configured for user or in environment');
+            return null;
+        }
+
+        console.log(`Using GitHub token from ${creatorUser?.githubToken ? 'user database' : 'environment'}`);
+        const octokit = new Octokit({ auth: githubToken });
+
+        const issueData = {
+            owner: githubInfo.owner,
+            repo: githubInfo.repo,
+            title: task.title,
+            body: `${task.description || 'No description provided'}\n\n---\n**Priority:** ${task.priority}\n**Estimated Hours:** ${task.estimateHours || 'Not set'}\n**Created from TeamManager**`,
+            labels: [task.priority]
+        };
+
+        // Add assignee if user has GitHub username
+        if (assignedUser?.githubUsername) {
+            issueData.assignees = [assignedUser.githubUsername];
+        }
+
+        const response = await octokit.rest.issues.create(issueData);
+        
+        console.log(`GitHub issue created: #${response.data.number}`);
+        
+        return {
+            issueNumber: response.data.number,
+            issueUrl: response.data.html_url
+        };
+    } catch (error) {
+        console.error('Error creating GitHub issue:', error.message);
+        return null;
+    }
+};
 
 // Initialize Gemini AI
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
@@ -133,6 +194,20 @@ router.post('/', async (req, res) => {
         await task.populate('projectId');
         await task.populate('assignedTo', '-password');
 
+        // Create GitHub issue automatically
+        const project = await Project.findById(projectId);
+        const assignedUser = assignedTo ? await User.findById(assignedTo) : null;
+        const creatorUser = createdBy ? await User.findById(createdBy) : null;
+        
+        const githubIssue = await createGithubIssue(project, task, assignedUser, creatorUser);
+        
+        if (githubIssue) {
+            task.githubIssueNumber = githubIssue.issueNumber;
+            task.githubIssueUrl = githubIssue.issueUrl;
+            await task.save();
+            console.log(`Task linked to GitHub issue #${githubIssue.issueNumber}`);
+        }
+
         res.status(201).json({
             id: task._id,
             title: task.title,
@@ -146,7 +221,9 @@ router.post('/', async (req, res) => {
             startedAt: task.startedAt,
             completedAt: task.completedAt,
             createdAt: task.createdAt,
-            dueDate: task.dueDate || task.createdAt
+            dueDate: task.dueDate || task.createdAt,
+            githubIssueNumber: task.githubIssueNumber,
+            githubIssueUrl: task.githubIssueUrl
         });
     } catch (error) {
         res.status(500).json({ message: error.message });

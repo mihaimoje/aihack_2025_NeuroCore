@@ -38,6 +38,15 @@ export const TaskCard = ({ task, onStatusChange }: TaskCardProps) => {
     }
   };
 
+  const getBorderColor = (priority: string, status: string) => {
+    if (status === "done") return "border-l-success";
+    switch (priority) {
+      case "high": return "border-l-destructive";
+      case "medium": return "border-l-primary";
+      default: return "border-l-muted-foreground/30";
+    }
+  };
+
   const getStatusLabel = (status: string) => {
     return status.split('-').map(word =>
       word.charAt(0).toUpperCase() + word.slice(1)
@@ -86,7 +95,7 @@ export const TaskCard = ({ task, onStatusChange }: TaskCardProps) => {
   };
 
   return (
-    <Card className="hover:shadow-md transition-shadow">
+    <Card className={`hover:shadow-md transition-shadow border-l-4 ${getBorderColor(task.priority, task.status)}`}>
       <CardContent className="p-4">
         <div className="flex items-start justify-between mb-2">
           <Link to={`/tasks/${task.id}`} className="flex-1">

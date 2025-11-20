@@ -12,7 +12,9 @@ const taskSchema = new Schema({
     estimateHours: Number,
     realHours: Number, //adică durata dintre startedAt și completedAt.
     startedAt: Date,
-    completedAt: Date
+    completedAt: Date,
+    githubIssueNumber: Number, // GitHub issue number for sync
+    githubIssueUrl: String // Direct link to GitHub issue
 }, { timestamps: true });
 
 export default model('Task', taskSchema);   
